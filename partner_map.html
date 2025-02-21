@@ -62,7 +62,7 @@
         const color = d3.scaleThreshold().domain(thresholds).range(maroonColors);
 
         d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json").then(function(us) {
-            d3.csv("schools_2.csv").then(function(data) {
+            d3.csv("mapdata.csv").then(function(data) {
                 const dataByFIPS = {};
                 data.forEach(d => {
                     dataByFIPS[d.FIPS] = { value: +d.value2, county: d.County };
