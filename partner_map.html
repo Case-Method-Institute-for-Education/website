@@ -1,158 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Responsive Choropleth Map</title>
-    <script src="https://d3js.org/d3.v6.min.js"></script>
-    <script src="https://unpkg.com/topojson@3"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Work Sans', sans-serif;
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Prevent scroll bars */
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsive Choropleth Map</title>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <script src="https://unpkg.com/topojson@3"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+      body {
+          font-family: 'Work Sans', sans-serif;
+          margin: 0;
+          padding: 0;
+          overflow: hidden; /* Prevent scroll bars */
+      }
 
-        .map-container {
-            width: 100vw; /* Full width of the viewport  */
-            height: 100vh; /* Full height of the viewport */
-            position: relative;
-        }
+      .map-container {
+          width: 100vw; /* Full width of the viewport  */
+          height: 100vh; /* Full height of the viewport */
+          position: relative;
+      }
 
-        svg {
-            width: 100%;
-            height: 100%;
-            display: block; /* Prevent extra whitespace */
-        }
+      svg {
+          width: 100%;
+          height: 100%;
+          display: block; /* Prevent extra whitespace */
+      }
 
-        .tooltip {
-            position: absolute;
-            background-color: white;
-            border: 1px solid #999;
-            padding: 10px;
-            font-size: 12px;
-            color: #333;
-            border-radius: 4px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-    </style>
+      .tooltip {
+          position: absolute;
+          background-color: white;
+          border: 1px solid #999;
+          padding: 10px;
+          font-size: 12px;
+          color: #333;
+          border-radius: 4px;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.2s;
+      }
+  </style>
 </head>
 <body>
-    <div class="map-container">
-        <svg viewBox="0 0 960 700" preserveAspectRatio="xMidYMid meet"></svg>
-    </div>
-    <div class="tooltip"></div>
-    <script>
-        const svg = d3.select("svg");
-        const tooltip = d3.select(".tooltip");
+  <div class="map-container">
+      <svg viewBox="0 0 960 700" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div class="tooltip"></div>
+  <script>
+      const svg = d3.select("svg");
+      const tooltip = d3.select(".tooltip");
 
-        // Extract viewBox dimensions
-        const svgWidth = +svg.attr("viewBox").split(" ")[2];
-        const svgHeight = +svg.attr("viewBox").split(" ")[3];
+      // Extract viewBox dimensions
+      const svgWidth = +svg.attr("viewBox").split(" ")[2];
+      const svgHeight = +svg.attr("viewBox").split(" ")[3];
 
-        const projection = d3.geoAlbersUsa().scale(1280).translate([480, 300]);
-        const path = d3.geoPath().projection(projection);
+      const projection = d3.geoAlbersUsa().scale(1280).translate([480, 300]);
+      const path = d3.geoPath().projection(projection);
 
-        const maroonColors = ["#f7c6c6", "#ee8e8e", "#e65858", "#db2a2a", "#b12020", "#8f1717", "#731111"];
-        const thresholds = [2, 6, 10, 16, 25, 50];
-        const color = d3.scaleThreshold().domain(thresholds).range(maroonColors);
+      // Updated purple color scale ranging from a pale purple to a deep purple
+      const fillColor = ["#f2e6ff", "#d9b3ff", "#bf80ff", "#a64dff", "#8c1aff", "#7300e6", "#5c00b3"];
+      const thresholds = [2, 6, 10, 16, 25, 50];
+      const color = d3.scaleThreshold().domain(thresholds).range(fillColor);
 
-        d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json").then(function(us) {
-            d3.csv("mapdata.csv").then(function(data) {
-                const dataByFIPS = {};
-                data.forEach(d => {
-                    dataByFIPS[d.FIPS] = { value: +d.value2, county: d.County };
-                });
+      d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json").then(function(us) {
+          d3.csv("mapdata.csv").then(function(data) {
+              const dataByFIPS = {};
+              data.forEach(d => {
+                  dataByFIPS[d.FIPS] = { value: +d.value2, county: d.County };
+              });
 
-                // Draw counties
-                svg.append("g")
-                    .selectAll("path")
-                    .data(topojson.feature(us, us.objects.counties).features)
-                    .enter().append("path")
-                    .attr("d", path)
-                    .attr("fill", d => {
-                        const countyData = dataByFIPS[d.id];
-                        return countyData ? color(countyData.value) : "#ccc";
-                    })
-                    .attr("stroke", "#fff")
-                    .attr("stroke-width", 0.5)
-                    .on("mouseover", function(event, d) {
-                        const countyData = dataByFIPS[d.id];
-                        if (countyData) {
-                            tooltip.transition().duration(200).style("opacity", 1);
-                            tooltip.html(`${countyData.county}<br>Partner Teachers: ${countyData.value}`);
-        
-                    // Get the current tooltip width (if it hasn't rendered yet, it might be 0;
-                    // you may need to set a min-width or measure after setting content)
-                        const tooltipWidth = tooltip.node().getBoundingClientRect().width;
-                        const offset = 10; // space between the cursor and the tooltip
-        
-                    // Check if the cursor is on the left or right half of the viewport.
-                    // You can also use the container's width if you prefer.
-                        let tooltipLeft;
-                        if (event.pageX < window.innerWidth / 2) {
-                            // Cursor is on the left half: place tooltip to the right of the cursor.
-                            tooltipLeft = event.pageX + offset;
-                        } else {
-                            // Cursor is on the right half: place tooltip to the left of the cursor.
-                            tooltipLeft = event.pageX - tooltipWidth - offset;
-                        }
-        
-                    tooltip
-                        .style("left", tooltipLeft + "px")
-                        .style("top", (event.pageY - 30) + "px");
-                    }
-                })
+              // Draw counties
+              svg.append("g")
+                  .selectAll("path")
+                  .data(topojson.feature(us, us.objects.counties).features)
+                  .enter().append("path")
+                  .attr("d", path)
+                  .attr("fill", d => {
+                      const countyData = dataByFIPS[d.id];
+                      return countyData ? color(countyData.value) : "#ccc";
+                  })
+                  .attr("stroke", "#fff")
+                  .attr("stroke-width", 0.5)
+                  .on("mouseover", function(event, d) {
+                      const countyData = dataByFIPS[d.id];
+                      if (countyData) {
+                          tooltip.transition().duration(200).style("opacity", 1);
+                          tooltip.html(`${countyData.county}<br>Partner Teachers: ${countyData.value}`);
 
-                    .on("mouseout", () => tooltip.transition().duration(200).style("opacity", 0));
+                          // Get the current tooltip width
+                          const tooltipWidth = tooltip.node().getBoundingClientRect().width;
+                          const offset = 10; // space between the cursor and the tooltip
 
-                // Add state borders
-                svg.append("path")
-                    .datum(topojson.mesh(us, us.objects.states, (a, b) => a !== b))
-                    .attr("d", path)
-                    .attr("stroke", "#000")
-                    .attr("fill", "none")
-                    .attr("stroke-width", 1);
+                          let tooltipLeft;
+                          if (event.pageX < window.innerWidth / 2) {
+                              tooltipLeft = event.pageX + offset;
+                          } else {
+                              tooltipLeft = event.pageX - tooltipWidth - offset;
+                          }
 
-                // Add legend
-                const legend = svg.append("g")
-                    .attr("class", "legend")
-                    .attr("transform", `translate(${svgWidth * 0.15}, ${svgHeight - 80})`); // 15% of the SVG width from the left
+                          tooltip
+                              .style("left", tooltipLeft + "px")
+                              .style("top", (event.pageY - 30) + "px");
+                      }
+                  })
+                  .on("mouseout", () => tooltip.transition().duration(200).style("opacity", 0));
 
-                const rectWidth = svgWidth * 0.1;
-                const rectHeight = 20; // Height of each legend rectangle
+              // Add state borders
+              svg.append("path")
+                  .datum(topojson.mesh(us, us.objects.states, (a, b) => a !== b))
+                  .attr("d", path)
+                  .attr("stroke", "#000")
+                  .attr("fill", "none")
+                  .attr("stroke-width", 1);
 
-                const legendLabels = ["1", "2–5", "6–9", "10–15", "16–24", "25–49", "50+"];
+              // Add legend
+              const legend = svg.append("g")
+                  .attr("class", "legend")
+                  .attr("transform", `translate(${svgWidth * 0.15}, ${svgHeight - 80})`);
 
-                maroonColors.forEach((color, i) => {
-                    legend.append("rect")
-                        .attr("x", i * rectWidth)
-                        .attr("y", 0)
-                        .attr("width", rectWidth)
-                        .attr("height", rectHeight)
-                        .attr("fill", color);
+              const rectWidth = svgWidth * 0.1;
+              const rectHeight = 20; // Height of each legend rectangle
 
-                    legend.append("text")
-                        .attr("x", i * rectWidth + rectWidth / 2)
-                        .attr("y", rectHeight + 15)
-                        .attr("text-anchor", "middle")
-                        .attr("font-size", "12px")
-                        .text(legendLabels[i]);
-                });
+              const legendLabels = ["1", "2–5", "6–9", "10–15", "16–24", "25–49", "50+"];
 
-                legend.append("text")
-                    .attr("x", 0)
-                    .attr("y", -10)
-                    .attr("text-anchor", "start")
-                    .attr("font-size", "14px")
-                    .attr("font-weight", "bold")
-                    .text("Partner Teachers by County");
-            });
-        });
-    </script>
+              fillColor.forEach((col, i) => {
+                  legend.append("rect")
+                      .attr("x", i * rectWidth)
+                      .attr("y", 0)
+                      .attr("width", rectWidth)
+                      .attr("height", rectHeight)
+                      .attr("fill", col);
+
+                  legend.append("text")
+                      .attr("x", i * rectWidth + rectWidth / 2)
+                      .attr("y", rectHeight + 15)
+                      .attr("text-anchor", "middle")
+                      .attr("font-size", "12px")
+                      .text(legendLabels[i]);
+              });
+
+              legend.append("text")
+                  .attr("x", 0)
+                  .attr("y", -10)
+                  .attr("text-anchor", "start")
+                  .attr("font-size", "14px")
+                  .attr("font-weight", "bold")
+                  .text("Partner Teachers by County");
+          });
+      });
+  </script>
 </body>
 </html>
